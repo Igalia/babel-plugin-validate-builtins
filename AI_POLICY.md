@@ -1,6 +1,5 @@
 # AI Policy
 
-
 ### Preface
 
 AI Tools and Assistants bring several challenges when used to contribute to Free and Open Source Projects.
@@ -19,21 +18,21 @@ Based on the problems explained in the Preface, the project establishes the foll
 1. You **may** use AI assistance for contributing to this project, provided you follow the rest of these rules.
 
 2. Humans First: All contributions to this project **must** come from a human.
-Bots, no matter if based on AI or other technologies, **must not** directly create issues, submit patches to the project or start discussions, among others, without prior approval from the project maintainers.
+   Bots, no matter if based on AI or other technologies, **must not** directly create issues, submit patches to the project or start discussions, among others, without prior approval from the project maintainers.
 
 3. Accountability: You **must** be responsible for each contribution.
-The person submitting each contribution vouches for the quality, license compliance and utility of it.
-The contributor is the author and is fully accountable for the entirety of the contribution, and must be able to provide proper answers to questions raised during the review process.
-Answers to questions must not be the output of AI tools without substantial additions of their own, except when fixing spelling and grammar errors or clarifying their own writing.
+   The person submitting each contribution vouches for the quality, license compliance and utility of it.
+   The contributor is the author and is fully accountable for the entirety of the contribution, and must be able to provide proper answers to questions raised during the review process.
+   Answers to questions must not be the output of AI tools without substantial additions of their own, except when fixing spelling and grammar errors or clarifying their own writing.
 
 4. Transparency: You **must** disclose the use of AI tools when a significant part of the contribution is taken from a tool without changes.
-You **should** disclose other uses of AI tools when it is useful.
-Routine use of assistive tools to correct spelling, grammar, or clarifying language does not need to be disclosed.
+   You **should** disclose other uses of AI tools when it is useful.
+   Routine use of assistive tools to correct spelling, grammar, or clarifying language does not need to be disclosed.
 
 5. Contribution Evaluation: AI tools **may** be used by human reviewers when evaluating a contribution.
-As with the contributions themselves, the human takes full responsibility for the entirety of the evaluation.
-The final decision **must** not come entirely from a tool.
-A human **must** always evaluate and authorize the final action.
+   As with the contributions themselves, the human takes full responsibility for the entirety of the evaluation.
+   The final decision **must** not come entirely from a tool.
+   A human **must** always evaluate and authorize the final action.
 
 6. Reviewing a contribution requires significant human effort.
-To ensure the long-term health of the project, maintainers may set in place policies to deprioritize or close contributions whose review burden appears disproportionate to the value they offer.
+   To ensure the long-term health of the project, maintainers may set in place policies to deprioritize or close contributions whose review burden appears disproportionate to the value they offer.

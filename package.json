@@ -1,0 +1,78 @@
+{
+  "name": "@igalia/babel-plugin-validate-builtins",
+  "version": "0.0.0",
+  "description": "A Babel plugin that throws when using built-ins not supported by your targets",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/igalia/babel-plugin-validate-builtins.git"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "babel-plugin"
+  ],
+  "scripts": {
+    "build": "babel src --out-dir lib --extensions .ts --delete-dir-on-start",
+    "lint": "eslint .",
+    "prepack": "NODE_ENV=production yarn build",
+    "test": "yarn build && jest",
+    "tscheck": "tsc",
+    "validate": "yarn lint && yarn tscheck && yarn test"
+  },
+  "dependencies": {
+    "@babel/helper-compilation-targets": "^8.0.0",
+    "@babel/helper-define-polyfill-provider": "^1.0.0",
+    "core-js-compat": "^3.50.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^8.0.0",
+    "@babel/core": "^8.0.0",
+    "@babel/eslint-parser": "^8.0.0",
+    "@babel/eslint-plugin-development": "^8.0.0",
+    "@babel/helper-plugin-test-runner": "^8.0.0",
+    "@babel/preset-env": "^8.0.0",
+    "@babel/preset-typescript": "^8.0.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.5",
+    "globals": "^17.6.0",
+    "jest": "^30.2.0",
+    "jest-light-runner": "^0.8.2",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.61.1"
+  },
+  "peerDependencies": {
+    "@babel/core": "^8.0.0"
+  },
+  "jest": {
+    "runner": "jest-light-runner",
+    "testRegex": "/test/[^/]+\\.m?js$",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/test/fixtures/",
+      "<rootDir>/.tmp/"
+    ],
+    "testEnvironment": "node",
+    "modulePathIgnorePatterns": [
+      "/test/fixtures/",
+      "<rootDir>/.tmp/"
+    ]
+  },
+  "packageManager": "yarn@4.18.1"
+}

@@ -74,6 +74,9 @@ const camelCase = (name: string) =>
 // as `Map.prototype.getOrInsert` or `Set.prototype.union`) as instance
 // properties, because it loads them together with their constructor. Derive
 // them from the dependencies of the global built-ins.
+// Some of those dependencies are not prototype methods: `cause` is an own
+// property of errors, and `toStringTag` is `Reflect[Symbol.toStringTag]`.
+const notPrototypeMethods = new Set(["cause", "toStringTag"]);
 const CollectionInstanceProperties: Record<string, CoreJSPolyfillDescriptor> =
   {};
 for (const globalName of Object.keys(BuiltIns)) {
@@ -82,6 +85,7 @@ for (const globalName of Object.keys(BuiltIns)) {
     if (!name.startsWith(prefix)) continue;
     const method = camelCase(name.slice(prefix.length).replace(/\.v2$/, ""));
     if (method === "constructor" || method.includes(".")) continue;
+    if (notPrototypeMethods.has(method)) continue;
     if (Object.hasOwn(InstanceProperties, method)) continue;
 
     CollectionInstanceProperties[method] ??= {

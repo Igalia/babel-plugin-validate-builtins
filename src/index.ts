@@ -16,7 +16,10 @@ import type {
   PluginObject,
   types as t,
 } from "@babel/core";
-import { getInclusionReasons } from "@babel/helper-compilation-targets";
+import {
+  getInclusionReasons,
+  isRequired,
+} from "@babel/helper-compilation-targets";
 
 import defineProvider from "@babel/helper-define-polyfill-provider";
 
@@ -119,11 +122,29 @@ function compareVersions(a: string, b: string) {
   return 0;
 }
 
+// Babel might instantiate the plugin once per file: only log each warning once.
+const loggedWarnings = new Set<string>();
+function warnOnce(message: string) {
+  if (loggedWarnings.has(message)) return;
+  loggedWarnings.add(message);
+  console.warn(message);
+}
+
+// Same as @babel/helper-define-polyfill-provider
+function toRegExp(pattern: string | RegExp): RegExp | null {
+  if (pattern instanceof RegExp) return pattern;
+  try {
+    return new RegExp(`^${pattern}$`);
+  } catch {
+    return null;
+  }
+}
+
 const prettifyVersion = (version: string) => version.replace(/(\.0)+$/, "");
 
 const provider = defineProvider<Options>(function (
   { createMetaResolver, shouldInjectPolyfill, targets },
-  { proposals = true },
+  { proposals = true, exclude = [] },
 ) {
   if (Object.keys(targets).length === 0) {
     throw new Error(
@@ -155,6 +176,36 @@ const provider = defineProvider<Options>(function (
 
   function isSupported(name: string) {
     return complianceFixes.has(name) || !shouldInjectPolyfill(name);
+  }
+
+  // Whether this plugin would never report `name`, regardless of `exclude`.
+  function isNeverReported(name: string) {
+    return (
+      !filterPolyfills(name) ||
+      complianceFixes.has(name) ||
+      obsoleteProposals.has(name) ||
+      !isRequired(name, targets, { compatData: corejs3Polyfills })
+    );
+  }
+
+  const unnecessaryExclusions = exclude.filter(pattern => {
+    const regexp = toRegExp(pattern);
+    if (!regexp) return false;
+    const matches = Object.keys(corejs3Polyfills).filter(name =>
+      regexp.test(name),
+    );
+    // Patterns that don't match anything are reported by
+    // @babel/helper-define-polyfill-provider.
+    return matches.length > 0 && matches.every(isNeverReported);
+  });
+  if (unnecessaryExclusions.length > 0) {
+    warnOnce(
+      `${PACKAGE_NAME}: the following "exclude" patterns only match ` +
+        `built-ins that are supported by your targets:\n` +
+        unnecessaryExclusions.map(p => `  - ${String(p)}\n`).join("") +
+        `You can remove them, together with any polyfill you are loading ` +
+        `for them.`,
+    );
   }
 
   // core-js-compat descriptors list every module that has to be loaded to

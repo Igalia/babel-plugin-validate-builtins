@@ -78,6 +78,8 @@ Strings are treated as regular expressions that must match the whole module name
 
 Babel throws if a pattern doesn't match any core-js module. Strings that are not valid regular expressions are ignored.
 
+If a pattern only matches built-ins that are already supported by your targets, this plugin logs a warning: you can remove it from `exclude`, together with the polyfills you are loading for it.
+
 When an error lists multiple modules (for example, `[es.array.includes, es.string.includes] .includes is not supported`), excluding any one of them allows that usage.
 
 Importing polyfills (for example, `import "core-js/actual/array/find-last"`) doesn't count as loading them: you still need to exclude them.

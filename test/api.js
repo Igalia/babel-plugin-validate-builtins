@@ -38,6 +38,18 @@ function getError(fn) {
   throw new Error("Expected an error to be thrown");
 }
 
+function getWarnings(fn) {
+  const warnings = [];
+  const { warn } = console;
+  console.warn = message => warnings.push(message);
+  try {
+    fn();
+  } finally {
+    console.warn = warn;
+  }
+  return warnings;
+}
+
 const countReports = message => message.match(/is not supported/g).length;
 
 describe("@igalia/babel-plugin-validate-builtins", () => {
@@ -99,6 +111,81 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
       );
       expect(message).toContain(".findLast is not supported");
       expect(message).not.toContain("Object.hasOwn is not supported");
+    });
+  });
+
+  describe("unnecessary exclusions", () => {
+    // Warnings are only logged once per process, so each test uses different
+    // patterns.
+
+    it("warns about built-ins supported by the targets", () => {
+      const warnings = getWarnings(() =>
+        transform(
+          "a;",
+          { exclude: ["es.object.has-own", "es.promise.try"] },
+          {
+            chrome: "120",
+          },
+        ),
+      );
+      expect(warnings).toEqual([
+        '@igalia/babel-plugin-validate-builtins: the following "exclude" ' +
+          "patterns only match built-ins that are supported by your targets:\n" +
+          "  - es.object.has-own\n" +
+          "You can remove them, together with any polyfill you are loading " +
+          "for them.",
+      ]);
+    });
+
+    it("warns about built-ins that are never reported", () => {
+      const warnings = getWarnings(() =>
+        transform(
+          "a;",
+          {
+            proposals: false,
+            exclude: [
+              "es.array.push",
+              "esnext.string.at",
+              "esnext.math.signbit",
+            ],
+          },
+          { ie: "11" },
+        ),
+      );
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain(
+        "  - es.array.push\n  - esnext.string.at\n  - esnext.math.signbit\n",
+      );
+    });
+
+    it("only warns about patterns that don't match unsupported built-ins", () => {
+      const warnings = getWarnings(() =>
+        transform(
+          "a;",
+          { exclude: [/^es\.array\./, "es\\.object\\.has.*"] },
+          { chrome: "120" },
+        ),
+      );
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("  - es\\.object\\.has.*\n");
+      expect(warnings[0]).not.toContain("es\\.array");
+    });
+
+    it("does not warn about unsupported built-ins", () => {
+      const warnings = getWarnings(() =>
+        transform("Object.hasOwn(a, b);", { exclude: ["es.object.has-own"] }),
+      );
+      expect(warnings).toEqual([]);
+    });
+
+    it("only logs each warning once", () => {
+      // Use different options objects, so that Babel instantiates the plugin
+      // twice.
+      const warnings = getWarnings(() => {
+        transform("a;", { exclude: ["es.array.find-last"] }, { chrome: "120" });
+        transform("b;", { exclude: ["es.array.find-last"] }, { chrome: "120" });
+      });
+      expect(warnings).toHaveLength(1);
     });
   });
 

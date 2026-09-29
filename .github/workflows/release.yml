@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # Required for npm trusted publishing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: "yarn"
+          registry-url: "https://registry.npmjs.org"
+      - name: Update npm
+        # Trusted publishing requires npm >= 11.5.1
+        run: npm install -g npm@latest
+      - name: Install
+        run: yarn install --immutable
+      - name: Check that the tag matches the package version
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match package.json version $VERSION"
+            exit 1
+          fi
+      - name: Validate
+        run: yarn validate
+      - name: Publish
+        # `prepack` builds the package in production mode
+        run: npm publish

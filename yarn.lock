@@ -1759,7 +1759,7 @@ __metadata:
     typescript: "npm:~6.0.3"
     typescript-eslint: "npm:^8.61.1"
   peerDependencies:
-    "@babel/core": ^8.0.0
+    "@babel/core": ^7.4.0 || ^8.0.0
   languageName: unknown
   linkType: soft
 

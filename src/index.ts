@@ -329,7 +329,7 @@ export default function validateBuiltins(
   options: Record<string, unknown> = {},
   dirname: string,
 ): PluginObject {
-  api.assertVersion("^8.0.0");
+  api.assertVersion("^7.4.0 || ^8.0.0");
 
   for (const name of Object.keys(options)) {
     if (!SUPPORTED_OPTIONS.has(name)) {

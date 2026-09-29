@@ -5,16 +5,20 @@ import {
   transformAsync,
   transformFromAstSync,
   transformSync,
+  version as babelVersion,
 } from "@babel/core";
 import validateBuiltins from "@igalia/babel-plugin-validate-builtins";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const isBabel7 = babelVersion.startsWith("7.");
 
 function babelOptions(options = {}, targets = { chrome: "90" }, rest = {}) {
   return {
     configFile: false,
     babelrc: false,
     filename: "input.js",
+    highlightCode: false,
     ...(targets && { targets }),
     plugins: [[validateBuiltins, options]],
     ...rest,
@@ -211,7 +215,10 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
 
     it("uses browserslist's defaults when there are no targets", () => {
       expect(() => transform("Math.signbit(x);", {}, null)).toThrow(
-        "Math.signbit is not supported by your targets",
+        // Babel 7 doesn't use browserslist's defaults
+        isBabel7
+          ? "could not find any target to validate against"
+          : "Math.signbit is not supported by your targets",
       );
     });
 

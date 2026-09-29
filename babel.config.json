@@ -2,12 +2,22 @@
   "sourceType": "unambiguous",
   "presets": [
     "@babel/preset-env",
-    ["@babel/preset-typescript", { "rewriteImportExtensions": true }]
+    [
+      "@babel/preset-typescript",
+      {
+        "rewriteImportExtensions": true
+      }
+    ]
   ],
-  "targets": { "node": "current" },
+  "plugins": ["./scripts/babel-plugin-compat-core-import.cjs"],
+  "targets": {
+    "node": "current"
+  },
   "env": {
     "production": {
-      "targets": { "node": "20.19" }
+      "targets": {
+        "node": "20.19"
+      }
     }
   }
 }

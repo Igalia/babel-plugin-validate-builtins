@@ -4,7 +4,7 @@ A Babel plugin that throws an error when your code uses a built-in (such as `Obj
 
 It uses the same detection logic and compatibility data as [`babel-plugin-polyfill-corejs3`](https://github.com/babel/babel-polyfills/tree/main/packages/babel-plugin-polyfill-corejs3), but rather than injecting polyfills it reports an error. It is meant for projects that don't load polyfills for all the built-ins they use.
 
-This plugin requires Babel 8.
+This plugin supports Babel 7 (7.4 or later) and Babel 8.
 
 ## Install
 
@@ -53,7 +53,7 @@ If you are already polyfilling it, you can allow it by adding the name in bracke
 
 These options work like in every polyfill provider: see [babel-polyfills' docs](https://github.com/babel/babel-polyfills/blob/main/docs/usage.md#options).
 
-When none of them is specified, this plugin uses the top-level [`targets`](https://babeljs.io/docs/options#targets) of your Babel configuration, which by default are read from your browserslist configuration (or, if there is none, browserslist's `defaults` query). Note that setting `ignoreBrowserslistConfig` or `configPath` without `targets` makes this plugin ignore the top-level targets.
+When none of them is specified, this plugin uses the top-level [`targets`](https://babeljs.io/docs/options#targets) of your Babel configuration, which by default are read from your browserslist configuration. When there is no browserslist configuration, Babel 8 uses browserslist's `defaults` query, while with Babel 7 you need to specify your targets. Note that setting `ignoreBrowserslistConfig` or `configPath` without `targets` makes this plugin ignore the top-level targets.
 
 The plugin throws if it can't determine any target to validate against. Any other option throws an error.
 

@@ -47,3 +47,27 @@ jobs:
           BABEL_ENV: production
       - name: Test
         run: yarn jest --ci --color
+
+  test-babel7:
+    name: Test with Babel 7
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: "yarn"
+      - name: Install
+        run: yarn install --immutable
+      - name: Build
+        run: yarn build
+        env:
+          BABEL_ENV: production
+      - name: Downgrade to Babel 7
+        run: |
+          node scripts/downgrade-babel-to-v7.mjs
+          YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+      - name: Test
+        run: yarn jest --ci --color

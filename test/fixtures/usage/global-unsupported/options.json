@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "80" },
+  "throws": "[es.aggregate-error] AggregateError is not supported by your targets (chrome 80, requires chrome 85)."
+}

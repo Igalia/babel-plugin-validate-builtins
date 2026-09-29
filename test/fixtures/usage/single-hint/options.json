@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "90" },
+  "throws": "If you are already polyfilling it, you can allow it by adding the name in brackets to the \"exclude\" option of @igalia/babel-plugin-validate-builtins."
+}

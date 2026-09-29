@@ -1,0 +1,4 @@
+{
+  "plugins": [["@igalia/validate-builtins", { "method": "usage-pure" }]],
+  "throws": "@igalia/babel-plugin-validate-builtins doesn't support the \"method\" option."
+}

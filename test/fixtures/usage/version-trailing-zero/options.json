@@ -1,0 +1,4 @@
+{
+  "targets": { "safari": "13.1" },
+  "throws": "[es.aggregate-error] AggregateError is not supported by your targets (safari 13.1, requires safari 14)."
+}

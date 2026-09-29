@@ -1,0 +1,4 @@
+{
+  "plugins": [["@igalia/validate-builtins", { "targets": { "chrome": "93" } }]],
+  "targets": { "ie": "11" }
+}

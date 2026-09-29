@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "100" },
+  "throws": "[es.set.union.v2] .union is not supported by your targets (chrome 100, requires chrome 123)."
+}

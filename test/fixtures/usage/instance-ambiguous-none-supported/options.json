@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "50" },
+  "throws": "[es.array.includes, es.string.includes] .includes is not supported by your targets (chrome 50, requires chrome 51)."
+}

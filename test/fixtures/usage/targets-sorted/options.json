@@ -1,0 +1,4 @@
+{
+  "targets": { "safari": "14", "chrome": "90", "firefox": "80" },
+  "throws": "[es.object.has-own] Object.hasOwn is not supported by your targets (chrome 90, requires chrome 93; firefox 80, requires firefox 92; safari 14, requires safari 15.4)."
+}

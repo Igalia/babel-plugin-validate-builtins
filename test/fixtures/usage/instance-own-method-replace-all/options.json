@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "80" },
+  "throws": "[es.string.replace-all] .replaceAll is not supported by your targets (chrome 80, requires chrome 85)."
+}

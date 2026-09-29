@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "90" },
+  "throws": "Object.hasOwn is not supported by your targets"
+}

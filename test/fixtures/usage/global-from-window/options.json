@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "80" },
+  "throws": "AggregateError is not supported by your targets"
+}

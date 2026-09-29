@@ -1,0 +1,6 @@
+{
+  "plugins": [
+    ["@igalia/validate-builtins", { "exclude": ["es.string.includes"] }]
+  ],
+  "targets": { "chrome": "50" }
+}

@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      { "exclude": ["es.object.has-own", "es\\.array\\.find-last.*"] }
+    ]
+  ],
+  "targets": { "chrome": "90" }
+}

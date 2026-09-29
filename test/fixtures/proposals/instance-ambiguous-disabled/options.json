@@ -1,0 +1,4 @@
+{
+  "plugins": [["@igalia/validate-builtins", { "proposals": false }]],
+  "targets": { "chrome": "130" }
+}

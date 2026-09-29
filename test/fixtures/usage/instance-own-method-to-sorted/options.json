@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "100" },
+  "throws": "[es.array.to-sorted] .toSorted is not supported by your targets (chrome 100, requires chrome 110)."
+}

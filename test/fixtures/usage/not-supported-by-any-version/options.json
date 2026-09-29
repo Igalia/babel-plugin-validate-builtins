@@ -1,0 +1,4 @@
+{
+  "targets": { "ie": "11" },
+  "throws": "[es.map] Map is not supported by your targets (ie 11, not supported by any version)."
+}

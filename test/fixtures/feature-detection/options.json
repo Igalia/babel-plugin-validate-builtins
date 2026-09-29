@@ -1,0 +1,5 @@
+{
+  "externalHelpers": false,
+  "plugins": ["@igalia/validate-builtins"],
+  "targets": { "chrome": "90" }
+}

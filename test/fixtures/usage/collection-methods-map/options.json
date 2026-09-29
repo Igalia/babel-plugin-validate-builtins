@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "100" },
+  "throws": "[es.map.get-or-insert, es.weak-map.get-or-insert] .getOrInsert is not supported by your targets (chrome 100, requires chrome 145)."
+}

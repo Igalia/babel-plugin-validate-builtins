@@ -1,0 +1,7 @@
+{
+  "plugins": [
+    ["@igalia/validate-builtins", { "exclude": ["es.object.hasOwn"] }]
+  ],
+  "targets": { "chrome": "90" },
+  "throws": "The following \"exclude\" patterns didn't match any polyfill:\n    es.object.hasOwn"
+}

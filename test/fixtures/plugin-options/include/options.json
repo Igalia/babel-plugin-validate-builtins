@@ -1,0 +1,4 @@
+{
+  "plugins": [["@igalia/validate-builtins", { "include": ["es.map"] }]],
+  "throws": "@igalia/babel-plugin-validate-builtins doesn't support the \"include\" option."
+}

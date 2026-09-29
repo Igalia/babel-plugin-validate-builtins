@@ -1,0 +1,4 @@
+{
+  "targets": { "chrome": "100", "firefox": "100", "safari": "16" },
+  "throws": "[es.array.find-last] .findLast is not supported by your targets (firefox 100, requires firefox 104)."
+}

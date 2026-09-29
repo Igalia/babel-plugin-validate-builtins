@@ -1,0 +1,3 @@
+{
+  "throws": "[es.object.has-own] Object.hasOwn is not supported by your targets (chrome 90, requires chrome 93)."
+}

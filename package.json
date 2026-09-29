@@ -28,6 +28,7 @@
     "build": "babel src --out-dir lib --extensions .ts --delete-dir-on-start",
     "lint": "eslint .",
     "prepack": "NODE_ENV=production yarn build",
+    "release": "yarn version \"$0\" && V=\"v$(node -p \"require('./package.json').version\")\" && git commit -m \"$V\" -- package.json && git tag -s -m \"$V\" \"$V\"",
     "test": "yarn build && jest",
     "tscheck": "tsc",
     "validate": "yarn lint && yarn tscheck && yarn test"

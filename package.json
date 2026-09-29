@@ -4,7 +4,7 @@
   "description": "A Babel plugin that throws when using built-ins not supported by your targets",
   "repository": {
     "type": "git",
-    "url": "https://github.com/igalia/babel-plugin-validate-builtins.git"
+    "url": "https://github.com/Igalia/babel-plugin-validate-builtins.git"
   },
   "license": "MIT",
   "publishConfig": {

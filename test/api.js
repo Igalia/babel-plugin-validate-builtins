@@ -80,7 +80,7 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
       expect(countReports(message)).toBe(2);
       expect(message).toContain("> 1 | arr.findLast(x => x);");
       expect(message).toContain("> 2 | Object.hasOwn(a, b);");
-      expect(message.match(/"exclude" option/g)).toHaveLength(1);
+      expect(message.match(/"perFileExcludes" option/g)).toHaveLength(1);
     });
 
     it("prefixes each error with the core-js modules to exclude", () => {
@@ -111,6 +111,176 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
       );
       expect(message).toContain(".findLast is not supported");
       expect(message).not.toContain("Object.hasOwn is not supported");
+    });
+  });
+
+  describe("perFileExcludes", () => {
+    const code = "Object.hasOwn(a, b);\narr.findLast(x => x);";
+    const transformFile = (filename, perFileExcludes, rest = {}) =>
+      transform(code, { perFileExcludes }, undefined, {
+        filename,
+        cwd: dirname,
+        ...rest,
+      });
+
+    it("allows the excluded built-ins in matching files", () => {
+      expect(
+        transformFile("src/legacy/a.js", {
+          "es.object.has-own": ["src/legacy/**"],
+          "es.array.find-last": ["src/**/*.js"],
+        }),
+      ).toBe(code);
+    });
+
+    it("reports the excluded built-ins in other files", () => {
+      const { message } = getError(() =>
+        transformFile("src/modern/a.js", {
+          "es.object.has-own": ["src/legacy/**"],
+          "es.array.find-last": ["src/**/*.js"],
+        }),
+      );
+      expect(message).toContain("Object.hasOwn is not supported");
+      expect(message).not.toContain(".findLast is not supported");
+    });
+
+    it("supports multiple globs", () => {
+      const perFileExcludes = {
+        "es.object.has-own": ["src/a.js", "src/b.js"],
+        "es.array.find-last": ["src/*.js"],
+      };
+      expect(transformFile("src/a.js", perFileExcludes)).toBe(code);
+      expect(transformFile("src/b.js", perFileExcludes)).toBe(code);
+      expect(() => transformFile("src/c.js", perFileExcludes)).toThrow(
+        "Object.hasOwn is not supported",
+      );
+    });
+
+    it("resolves globs relative to the configuration's directory", () => {
+      const perFileExcludes = { "es\\.(object|array)\\..*": ["src/**"] };
+      expect(transformFile("src/a.js", perFileExcludes)).toBe(code);
+      expect(() =>
+        transformFile(path.join(dirname, "src/a.js"), perFileExcludes, {
+          cwd: path.join(dirname, "src"),
+        }),
+      ).toThrow("Object.hasOwn is not supported");
+    });
+
+    it("supports absolute globs", () => {
+      expect(
+        transformFile("src/a.js", {
+          "es\\.(object|array)\\..*": [path.join(dirname, "src/*.js")],
+        }),
+      ).toBe(code);
+    });
+
+    it("allows ambiguous instance methods when excluding any candidate", () => {
+      expect(
+        transform(
+          "x.includes(y);",
+          { perFileExcludes: { "es.string.includes": ["**"] } },
+          { chrome: "40" },
+        ),
+      ).toBe("x.includes(y);");
+    });
+
+    it("does not apply to code without a filename", () => {
+      expect(() =>
+        transformFile(undefined, { "es.object.has-own": ["**"] }),
+      ).toThrow("Object.hasOwn is not supported");
+    });
+
+    it("throws when it is not an object", () => {
+      expect(() => transformFile("a.js", ["es.object.has-own"])).toThrow(
+        'the "perFileExcludes" option must be an object.',
+      );
+    });
+
+    it("throws when a value is not an array of globs", () => {
+      const message =
+        'the "perFileExcludes" option must map each core-js module name to ' +
+        "an array of globs.";
+      expect(() =>
+        transformFile("a.js", { "es.object.has-own": "a.js" }),
+      ).toThrow(message);
+      expect(() =>
+        transformFile("a.js", { "es.object.has-own": ["a.js", 1] }),
+      ).toThrow(message);
+    });
+
+    it("throws when a key doesn't match any core-js module", () => {
+      expect(() =>
+        transformFile("a.js", { "es.object.hasOwn": ["**"], "es.(": ["**"] }),
+      ).toThrow(
+        'the following "perFileExcludes" keys didn\'t match any core-js ' +
+          "module:\n  - es.object.hasOwn\n  - es.(\n",
+      );
+    });
+
+    it("warns about keys that only match supported built-ins", () => {
+      const warnings = getWarnings(() =>
+        transform(
+          "a;",
+          {
+            perFileExcludes: {
+              "es.promise.try": ["**"],
+              "es.error.cause": ["**"],
+            },
+          },
+          { chrome: "120" },
+        ),
+      );
+      expect(warnings).toEqual([
+        '@igalia/babel-plugin-validate-builtins: the following "perFileExcludes" ' +
+          "keys only match built-ins that are supported by your targets:\n" +
+          "  - es.error.cause\n" +
+          "You can remove them, together with any polyfill you are loading " +
+          "for them.",
+      ]);
+    });
+
+    describe("overlapping with exclude", () => {
+      // Warnings are only logged once per process, so each test uses
+      // different modules.
+
+      it("warns about modules excluded by both options", () => {
+        const warnings = getWarnings(() =>
+          transform("a;", {
+            exclude: ["es.object.has-own", "es\\.array\\.find-last.*"],
+            perFileExcludes: { "es\\.(object|array)\\..*": ["src/**"] },
+          }),
+        );
+        expect(warnings).toEqual([
+          "@igalia/babel-plugin-validate-builtins: the following core-js " +
+            'modules are excluded both by "exclude" and by "perFileExcludes":\n' +
+            "  - es.array.find-last\n" +
+            "  - es.array.find-last-index\n" +
+            "  - es.object.has-own\n" +
+            '"exclude" already allows them in all files, so their ' +
+            '"perFileExcludes" entries have no effect. Remove them from one ' +
+            "of the two options.",
+        ]);
+      });
+
+      it("does not warn about modules supported by the targets", () => {
+        const warnings = getWarnings(() =>
+          transform("a;", {
+            exclude: ["es.array.flat"],
+            perFileExcludes: { "es.array.flat": ["**"] },
+          }),
+        );
+        expect(warnings).toHaveLength(2);
+        expect(warnings.join("\n")).not.toContain("excluded both");
+      });
+
+      it("does not warn when they don't overlap", () => {
+        const warnings = getWarnings(() =>
+          transform("a;", {
+            exclude: ["es.array.at"],
+            perFileExcludes: { "es.array.to-sorted": ["**"] },
+          }),
+        );
+        expect(warnings).toEqual([]);
+      });
     });
   });
 

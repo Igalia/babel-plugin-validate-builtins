@@ -1,3 +1,4 @@
+import path from "node:path";
 import corejs3Polyfills from "core-js-compat/data.json" with { type: "json" };
 import {
   BuiltIns,
@@ -31,10 +32,18 @@ const SUPPORTED_OPTIONS = new Set([
   "configPath",
   "exclude",
   "proposals",
+  "perFileExcludes",
 ]);
 
 type Options = {
   proposals?: boolean;
+  perFileExcludes?: Record<string, string[]>;
+};
+
+type PerFileExclude = {
+  pattern: string;
+  regexp: RegExp;
+  globs: string[];
 };
 
 type Meta =
@@ -142,9 +151,66 @@ function toRegExp(pattern: string | RegExp): RegExp | null {
 
 const prettifyVersion = (version: string) => version.replace(/(\.0)+$/, "");
 
+function normalizePerFileExcludes(perFileExcludes: unknown): PerFileExclude[] {
+  if (perFileExcludes == null) return [];
+  if (typeof perFileExcludes !== "object" || Array.isArray(perFileExcludes)) {
+    throw new Error(
+      `${PACKAGE_NAME}: the "perFileExcludes" option must be an object.`,
+    );
+  }
+
+  const result: PerFileExclude[] = [];
+  const unmatched: string[] = [];
+  for (const [pattern, globs] of Object.entries(perFileExcludes)) {
+    if (!Array.isArray(globs) || !globs.every(g => typeof g === "string")) {
+      throw new Error(
+        `${PACKAGE_NAME}: the "perFileExcludes" option must map each ` +
+          `core-js module name to an array of globs.`,
+      );
+    }
+
+    const regexp = toRegExp(pattern);
+    if (!regexp || !Object.keys(corejs3Polyfills).some(n => regexp.test(n))) {
+      unmatched.push(pattern);
+    } else {
+      result.push({ pattern, regexp, globs });
+    }
+  }
+
+  if (unmatched.length > 0) {
+    throw new Error(
+      `${PACKAGE_NAME}: the following "perFileExcludes" keys didn't match ` +
+        `any core-js module:\n` +
+        unmatched.map(p => `  - ${p}\n`).join(""),
+    );
+  }
+
+  return result;
+}
+
+// Globs are relative to the directory of the configuration file that
+// contains the plugin (or to the current working directory, when passing
+// options programmatically), like Babel's "only" and "ignore" options.
+function getFileExcludes(
+  perFileExcludes: PerFileExclude[],
+  dirname: string,
+  filename: string | null | undefined,
+): RegExp[] {
+  if (perFileExcludes.length === 0 || filename == null) return [];
+  const relative = path.relative(dirname, filename);
+  return perFileExcludes
+    .filter(({ globs }) =>
+      globs.some(glob =>
+        path.matchesGlob(path.isAbsolute(glob) ? filename : relative, glob),
+      ),
+    )
+    .map(({ regexp }) => regexp);
+}
+
 const provider = defineProvider<Options>(function (
   { createMetaResolver, shouldInjectPolyfill, targets },
-  { proposals = true, exclude = [] },
+  { proposals = true, exclude = [], perFileExcludes: rawPerFileExcludes },
+  dirname: string,
 ) {
   if (Object.keys(targets).length === 0) {
     throw new Error(
@@ -152,6 +218,8 @@ const provider = defineProvider<Options>(function (
         `Please specify your targets using the "targets" option.`,
     );
   }
+
+  const perFileExcludes = normalizePerFileExcludes(rawPerFileExcludes);
 
   const resolve = createMetaResolver({
     global: BuiltIns,
@@ -188,23 +256,49 @@ const provider = defineProvider<Options>(function (
     );
   }
 
-  const unnecessaryExclusions = exclude.filter(pattern => {
-    const regexp = toRegExp(pattern);
-    if (!regexp) return false;
-    const matches = Object.keys(corejs3Polyfills).filter(name =>
-      regexp.test(name),
-    );
-    // Patterns that don't match anything are reported by
-    // @babel/helper-define-polyfill-provider.
-    return matches.length > 0 && matches.every(isNeverReported);
-  });
-  if (unnecessaryExclusions.length > 0) {
+  function warnUnnecessaryExclusions(
+    description: string,
+    patterns: Array<string | RegExp>,
+  ) {
+    const unnecessary = patterns.filter(pattern => {
+      const regexp = toRegExp(pattern);
+      if (!regexp) return false;
+      const matches = Object.keys(corejs3Polyfills).filter(name =>
+        regexp.test(name),
+      );
+      // Patterns that don't match anything are reported elsewhere.
+      return matches.length > 0 && matches.every(isNeverReported);
+    });
+    if (unnecessary.length === 0) return;
     warnOnce(
-      `${PACKAGE_NAME}: the following "exclude" patterns only match ` +
+      `${PACKAGE_NAME}: the following ${description} only match ` +
         `built-ins that are supported by your targets:\n` +
-        unnecessaryExclusions.map(p => `  - ${String(p)}\n`).join("") +
+        unnecessary.map(p => `  - ${String(p)}\n`).join("") +
         `You can remove them, together with any polyfill you are loading ` +
         `for them.`,
+    );
+  }
+  warnUnnecessaryExclusions(`"exclude" patterns`, exclude);
+  warnUnnecessaryExclusions(
+    `"perFileExcludes" keys`,
+    perFileExcludes.map(({ pattern }) => pattern),
+  );
+
+  const excludeRegExps = exclude.map(toRegExp).filter(r => r != null);
+  const duplicateExclusions = Object.keys(corejs3Polyfills).filter(
+    name =>
+      !isNeverReported(name) &&
+      excludeRegExps.some(regexp => regexp.test(name)) &&
+      perFileExcludes.some(({ regexp }) => regexp.test(name)),
+  );
+  if (duplicateExclusions.length > 0) {
+    warnOnce(
+      `${PACKAGE_NAME}: the following core-js modules are excluded both by ` +
+        `"exclude" and by "perFileExcludes":\n` +
+        duplicateExclusions.map(name => `  - ${name}\n`).join("") +
+        `"exclude" already allows them in all files, so their ` +
+        `"perFileExcludes" entries have no effect. Remove them from one of ` +
+        `the two options.`,
     );
   }
 
@@ -268,6 +362,11 @@ const provider = defineProvider<Options>(function (
   // that we can report all of them at once in post().
   let violations: Violation[] | null = null;
   let reportedNodes: WeakSet<t.Node> | null = null;
+  let fileExcludes: RegExp[] | null = null;
+
+  function isAllowed(name: string) {
+    return isSupported(name) || fileExcludes.some(regexp => regexp.test(name));
+  }
 
   function validate(
     meta: Meta,
@@ -281,7 +380,7 @@ const provider = defineProvider<Options>(function (
     // there might be multiple candidates (e.g. `.includes` could be either
     // `Array.prototype.includes` or `String.prototype.includes`): we only
     // report it if none of them is supported.
-    if (candidates.length === 0 || candidates.some(isSupported)) return;
+    if (candidates.length === 0 || candidates.some(isAllowed)) return;
 
     if (isFeatureDetection(path) || isGuarded(path)) return;
 
@@ -306,14 +405,19 @@ const provider = defineProvider<Options>(function (
 
     filterPolyfills,
 
-    pre() {
+    pre(file: File) {
       violations = [];
       reportedNodes = new WeakSet();
+      fileExcludes = getFileExcludes(
+        perFileExcludes,
+        dirname,
+        file.opts.filename,
+      );
     },
 
     post(file: File) {
       const fileViolations = violations;
-      violations = reportedNodes = null;
+      violations = reportedNodes = fileExcludes = null;
       if (fileViolations.length === 0) return;
 
       fileViolations.sort(
@@ -335,8 +439,10 @@ const provider = defineProvider<Options>(function (
           )
           .join("\n\n") +
           `\n\nIf you are already polyfilling ${pronoun}, you can allow ` +
-          `${pronoun} by adding ${names} in brackets to the "exclude" ` +
-          `option of ${PACKAGE_NAME}.`,
+          `${pronoun} by adding ${names} in brackets to the ` +
+          `"perFileExcludes" option of ${PACKAGE_NAME} (to allow ${pronoun} ` +
+          `only in some files) or to its "exclude" option (to allow ` +
+          `${pronoun} everywhere).`,
       );
     },
 

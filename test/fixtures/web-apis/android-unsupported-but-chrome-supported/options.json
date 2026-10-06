@@ -1,0 +1,4 @@
+{
+  "targets": { "android": "136", "chrome": "136" },
+  "throws": "[web.Navigator.share] navigator.share is not supported by your targets (android 136, not supported by any version)."
+}

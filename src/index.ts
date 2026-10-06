@@ -10,6 +10,7 @@ import canSkipPolyfill from "./vendor/usage-filters.ts";
 import { complianceFixes, obsoleteProposals } from "./ignored-modules.ts";
 import { isFeatureDetection, isGuarded } from "./feature-detection.ts";
 import {
+  NEVER_SUPPORTED,
   PREFIX as WEB_API_PREFIX,
   coreJSWebModuleReplacements,
   getWebApis,
@@ -479,7 +480,7 @@ const provider = defineProvider<Options>(function (
       for (const env of Object.keys(unsupported)) {
         const version = compatData[name][env];
         const current = required.get(env);
-        if (version == null) {
+        if (version == null || version === NEVER_SUPPORTED) {
           if (!required.has(env)) required.set(env, null);
         } else if (current == null || compareVersions(version, current) < 0) {
           required.set(env, String(version));

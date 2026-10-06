@@ -1,6 +1,7 @@
 import bcd from "@mdn/browser-compat-data" with { type: "json" };
 import corejs3Polyfills from "core-js-compat/data.json" with { type: "json" };
 import {
+  NEVER_SUPPORTED,
   SINGLETONS,
   bcdSupportToCompat,
   coreJSWebModuleReplacements,
@@ -56,6 +57,16 @@ describe("bcdSupportToCompat", () => {
     });
     expect(compat).not.toHaveProperty("firefox");
     expect(compat).not.toHaveProperty("safari");
+  });
+
+  // Babel would otherwise fall back to the Chrome version.
+  it("marks features unsupported on Android with a version that never exists", () => {
+    const compat = bcdSupportToCompat({
+      chrome: { version_added: "89" },
+      webview_android: { version_added: false },
+    });
+    expect(compat.chrome).toBe("89");
+    expect(compat.android).toBe(NEVER_SUPPORTED);
   });
 
   it("uses the upper bound of ranged versions", () => {

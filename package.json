@@ -1,6 +1,6 @@
 {
   "name": "@igalia/babel-plugin-validate-builtins",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A Babel plugin that throws when using built-ins not supported by your targets",
   "repository": {
     "type": "git",

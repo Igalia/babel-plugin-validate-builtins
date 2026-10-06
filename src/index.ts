@@ -9,6 +9,14 @@ import {
 import canSkipPolyfill from "./vendor/usage-filters.ts";
 import { complianceFixes, obsoleteProposals } from "./ignored-modules.ts";
 import { isFeatureDetection, isGuarded } from "./feature-detection.ts";
+import {
+  PREFIX as WEB_API_PREFIX,
+  coreJSWebModuleReplacements,
+  getWebApis,
+  isCoreJSWebModule,
+  type CompatData,
+} from "./web-apis.ts";
+import { compareVersions } from "./versions.ts";
 
 import type {
   File,
@@ -33,11 +41,15 @@ const SUPPORTED_OPTIONS = new Set([
   "exclude",
   "proposals",
   "perFileExcludes",
+  "webApis",
+  "webInstanceMembers",
 ]);
 
 type Options = {
   proposals?: boolean;
   perFileExcludes?: Record<string, string[]>;
+  webApis?: boolean;
+  webInstanceMembers?: boolean;
 };
 
 type PerFileExclude = {
@@ -110,6 +122,71 @@ for (const globalName of Object.keys(BuiltIns)) {
   }
 }
 
+// core-js also polyfills some web APIs, in its `web.*` modules. We validate
+// all the web APIs using MDN's data instead (see ./web-apis.ts), so we remove
+// them from core-js's data and definitions. MDN's data also takes precedence
+// for globals that core-js handles without `web.*` modules (such as `fetch`).
+const webApis = getWebApis();
+
+const coreJSData = Object.fromEntries(
+  Object.entries(corejs3Polyfills).filter(([name]) => !isCoreJSWebModule(name)),
+) as CompatData;
+
+function withoutWebApis(
+  definitions: Record<string, CoreJSPolyfillDescriptor>,
+  isWebApi: (key: string) => boolean = () => false,
+) {
+  const result: Record<string, CoreJSPolyfillDescriptor> = {};
+  for (const [key, desc] of Object.entries(definitions)) {
+    if (isWebApi(key) || isCoreJSWebModule(desc.name)) continue;
+    const global = desc.global.filter(name => !isCoreJSWebModule(name));
+    if (global.length === 0) continue;
+    result[key] = { ...desc, global };
+  }
+  return result;
+}
+
+const coreJSGlobal = withoutWebApis(BuiltIns, key =>
+  Object.hasOwn(webApis.global, key),
+);
+const coreJSStatic: Record<
+  string,
+  Record<string, CoreJSPolyfillDescriptor>
+> = {};
+for (const [object, properties] of Object.entries(StaticProperties)) {
+  coreJSStatic[object] = withoutWebApis(properties, key =>
+    Object.hasOwn(webApis.static[object] ?? {}, key),
+  );
+}
+const coreJSInstance = withoutWebApis({
+  ...CollectionInstanceProperties,
+  ...InstanceProperties,
+});
+
+const mergedGlobal = { ...coreJSGlobal, ...webApis.global };
+const mergedStatic = { ...webApis.static };
+for (const [object, properties] of Object.entries(coreJSStatic)) {
+  mergedStatic[object] = { ...webApis.static[object], ...properties };
+}
+
+// The compat data of all the built-ins that can be reported, with each
+// combination of the "webApis" and "webInstanceMembers" options.
+const compatDataCache = new Map<string, CompatData>();
+function getCompatData(validateWebApis: boolean, webInstanceMembers: boolean) {
+  if (!validateWebApis) return coreJSData;
+  const key = String(webInstanceMembers);
+  if (!compatDataCache.has(key)) {
+    compatDataCache.set(key, {
+      ...coreJSData,
+      ...webApis.compatData,
+      ...(webInstanceMembers && webApis.instanceCompatData),
+    });
+  }
+  return compatDataCache.get(key);
+}
+const coreJSWebModules =
+  Object.keys(corejs3Polyfills).filter(isCoreJSWebModule);
+
 function describeUsage(meta: Meta, resolved: Resolved) {
   if (resolved.kind === "global" || meta.kind === "global") {
     return resolved.name;
@@ -119,16 +196,6 @@ function describeUsage(meta: Meta, resolved: Resolved) {
     return `${meta.object}.prototype.${meta.key}`;
   }
   return `.${meta.key}`;
-}
-
-function compareVersions(a: string, b: string) {
-  const aParts = a.split(".");
-  const bParts = b.split(".");
-  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-    const diff = Number(aParts[i] ?? 0) - Number(bParts[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
 }
 
 // Babel might instantiate the plugin once per file: only log each warning once.
@@ -151,7 +218,41 @@ function toRegExp(pattern: string | RegExp): RegExp | null {
 
 const prettifyVersion = (version: string) => version.replace(/(\.0)+$/, "");
 
-function normalizePerFileExcludes(perFileExcludes: unknown): PerFileExclude[] {
+// When users try to exclude core-js's `web.*` modules, which we don't use
+// anymore, tell them which names to use instead.
+function checkCoreJSWebModules(
+  description: string,
+  patterns: Array<string | RegExp>,
+  names: string[],
+) {
+  const errors: string[] = [];
+  for (const pattern of patterns) {
+    const regexp = toRegExp(pattern);
+    if (!regexp || names.some(name => regexp.test(name))) continue;
+    const modules = coreJSWebModules.filter(name => regexp.test(name));
+    if (modules.length === 0) continue;
+    const replacements = new Set(
+      modules.flatMap(name => coreJSWebModuleReplacements[name] ?? []),
+    );
+    const fix =
+      replacements.size === 0
+        ? "it is not reported anymore, so you can remove it"
+        : `use ${Array.from(replacements).join(", ")} instead`;
+    errors.push(`  - ${String(pattern)}: ${fix}.\n`);
+  }
+  if (errors.length === 0) return;
+  throw new Error(
+    `${PACKAGE_NAME}: web APIs are now validated using MDN's ` +
+      `browser-compat-data rather than core-js's \`web.*\` modules. The ` +
+      `following ${description} only match core-js modules that are not used anymore:\n` +
+      errors.join(""),
+  );
+}
+
+function normalizePerFileExcludes(
+  perFileExcludes: unknown,
+  names: string[],
+): PerFileExclude[] {
   if (perFileExcludes == null) return [];
   if (typeof perFileExcludes !== "object" || Array.isArray(perFileExcludes)) {
     throw new Error(
@@ -165,12 +266,12 @@ function normalizePerFileExcludes(perFileExcludes: unknown): PerFileExclude[] {
     if (!Array.isArray(globs) || !globs.every(g => typeof g === "string")) {
       throw new Error(
         `${PACKAGE_NAME}: the "perFileExcludes" option must map each ` +
-          `core-js module name to an array of globs.`,
+          `module name to an array of globs.`,
       );
     }
 
     const regexp = toRegExp(pattern);
-    if (!regexp || !Object.keys(corejs3Polyfills).some(n => regexp.test(n))) {
+    if (!regexp || !names.some(n => regexp.test(n))) {
       unmatched.push(pattern);
     } else {
       result.push({ pattern, regexp, globs });
@@ -180,7 +281,7 @@ function normalizePerFileExcludes(perFileExcludes: unknown): PerFileExclude[] {
   if (unmatched.length > 0) {
     throw new Error(
       `${PACKAGE_NAME}: the following "perFileExcludes" keys didn't match ` +
-        `any core-js module:\n` +
+        `any core-js module or MDN feature:\n` +
         unmatched.map(p => `  - ${p}\n`).join(""),
     );
   }
@@ -209,7 +310,13 @@ function getFileExcludes(
 
 const provider = defineProvider<Options>(function (
   { createMetaResolver, shouldInjectPolyfill, targets },
-  { proposals = true, exclude = [], perFileExcludes: rawPerFileExcludes },
+  {
+    proposals = true,
+    exclude = [],
+    perFileExcludes: rawPerFileExcludes,
+    webApis: validateWebApis = true,
+    webInstanceMembers = false,
+  },
   dirname: string,
 ) {
   if (Object.keys(targets).length === 0) {
@@ -219,12 +326,36 @@ const provider = defineProvider<Options>(function (
     );
   }
 
-  const perFileExcludes = normalizePerFileExcludes(rawPerFileExcludes);
+  if (webInstanceMembers && !validateWebApis) {
+    throw new Error(
+      `${PACKAGE_NAME}: the "webInstanceMembers" option requires the ` +
+        `"webApis" option to be enabled.`,
+    );
+  }
+
+  const compatData = getCompatData(validateWebApis, webInstanceMembers);
+  const knownNames = Object.keys(compatData);
+
+  checkCoreJSWebModules(`"exclude" patterns`, exclude, knownNames);
+  if (rawPerFileExcludes != null && typeof rawPerFileExcludes === "object") {
+    checkCoreJSWebModules(
+      `"perFileExcludes" keys`,
+      Object.keys(rawPerFileExcludes),
+      knownNames,
+    );
+  }
+
+  const perFileExcludes = normalizePerFileExcludes(
+    rawPerFileExcludes,
+    knownNames,
+  );
 
   const resolve = createMetaResolver({
-    global: BuiltIns,
-    static: StaticProperties,
-    instance: { ...CollectionInstanceProperties, ...InstanceProperties },
+    global: validateWebApis ? mergedGlobal : coreJSGlobal,
+    static: validateWebApis ? mergedStatic : coreJSStatic,
+    instance: webInstanceMembers
+      ? { ...webApis.instance, ...coreJSInstance }
+      : coreJSInstance,
   });
 
   // Copied from babel-plugin-polyfill-corejs3
@@ -252,7 +383,7 @@ const provider = defineProvider<Options>(function (
       !filterPolyfills(name) ||
       complianceFixes.has(name) ||
       obsoleteProposals.has(name) ||
-      !isRequired(name, targets, { compatData: corejs3Polyfills })
+      !isRequired(name, targets, { compatData })
     );
   }
 
@@ -263,9 +394,7 @@ const provider = defineProvider<Options>(function (
     const unnecessary = patterns.filter(pattern => {
       const regexp = toRegExp(pattern);
       if (!regexp) return false;
-      const matches = Object.keys(corejs3Polyfills).filter(name =>
-        regexp.test(name),
-      );
+      const matches = knownNames.filter(name => regexp.test(name));
       // Patterns that don't match anything are reported elsewhere.
       return matches.length > 0 && matches.every(isNeverReported);
     });
@@ -285,7 +414,7 @@ const provider = defineProvider<Options>(function (
   );
 
   const excludeRegExps = exclude.map(toRegExp).filter(r => r != null);
-  const duplicateExclusions = Object.keys(corejs3Polyfills).filter(
+  const duplicateExclusions = knownNames.filter(
     name =>
       !isNeverReported(name) &&
       excludeRegExps.some(regexp => regexp.test(name)) &&
@@ -293,7 +422,7 @@ const provider = defineProvider<Options>(function (
   );
   if (duplicateExclusions.length > 0) {
     warnOnce(
-      `${PACKAGE_NAME}: the following core-js modules are excluded both by ` +
+      `${PACKAGE_NAME}: the following built-ins are excluded both by ` +
         `"exclude" and by "perFileExcludes":\n` +
         duplicateExclusions.map(name => `  - ${name}\n`).join("") +
         `"exclude" already allows them in all files, so their ` +
@@ -312,6 +441,18 @@ const provider = defineProvider<Options>(function (
   function getCandidates(meta: Meta, resolved: Resolved, deps: string[]) {
     if (resolved.kind !== "instance" || meta.kind === "global") {
       return filterPolyfills(resolved.desc.name) ? [resolved.desc.name] : [];
+    }
+
+    // MDN's instance properties list one feature per interface that has a
+    // property with that name.
+    if (resolved.desc.name.startsWith(WEB_API_PREFIX)) {
+      if (meta.placement === "prototype" && meta.object) {
+        const own = deps.filter(name =>
+          name.startsWith(`${WEB_API_PREFIX}${meta.object}.`),
+        );
+        if (own.length > 0) return own;
+      }
+      return deps;
     }
 
     const available = deps.filter(
@@ -334,9 +475,9 @@ const provider = defineProvider<Options>(function (
     // there are multiple candidates, any of them).
     const required = new Map<string, string | null>();
     for (const name of candidates) {
-      const unsupported = getInclusionReasons(name, targets, corejs3Polyfills);
+      const unsupported = getInclusionReasons(name, targets, compatData);
       for (const env of Object.keys(unsupported)) {
-        const version = corejs3Polyfills[name][env];
+        const version = compatData[name][env];
         const current = required.get(env);
         if (version == null) {
           if (!required.has(env)) required.set(env, null);
@@ -401,7 +542,7 @@ const provider = defineProvider<Options>(function (
   return {
     name: PACKAGE_NAME,
 
-    polyfills: corejs3Polyfills,
+    polyfills: compatData,
 
     filterPolyfills,
 

@@ -1,0 +1,13 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      {
+        "webInstanceMembers": true
+      }
+    ]
+  ],
+  "targets": {
+    "chrome": "100"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      {
+        "webInstanceMembers": true
+      }
+    ]
+  ],
+  "targets": {
+    "chrome": "100"
+  },
+  "throws": "[web.Element.checkVisibility] .checkVisibility is not supported by your targets (chrome 100, requires chrome 105)."
+}

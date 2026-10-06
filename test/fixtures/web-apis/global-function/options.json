@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "chrome": "40"
+  },
+  "throws": "[web.fetch] fetch is not supported by your targets (chrome 40, requires chrome 42)."
+}

@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "firefox": "120"
+  },
+  "throws": "[web.Document.startViewTransition] document.startViewTransition is not supported by your targets (firefox 120, requires firefox 144)."
+}

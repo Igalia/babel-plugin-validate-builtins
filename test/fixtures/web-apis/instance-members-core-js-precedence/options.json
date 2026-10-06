@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      {
+        "webInstanceMembers": true
+      }
+    ]
+  ],
+  "targets": {
+    "chrome": "90"
+  },
+  "throws": "[es.array.find-last] .findLast is not supported by your targets (chrome 90, requires chrome 97)."
+}

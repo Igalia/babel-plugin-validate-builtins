@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "chrome": "130"
+  },
+  "throws": "[web.BarcodeDetector] BarcodeDetector is not supported by your targets (chrome 130, not supported by any version)."
+}

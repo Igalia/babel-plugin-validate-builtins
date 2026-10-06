@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "firefox": "60"
+  },
+  "throws": "[web.ResizeObserver] ResizeObserver is not supported by your targets (firefox 60, requires firefox 69)."
+}

@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "firefox": "115"
+  },
+  "throws": "[web.Navigator.share] navigator.share is not supported by your targets (firefox 115, not supported by any version)."
+}

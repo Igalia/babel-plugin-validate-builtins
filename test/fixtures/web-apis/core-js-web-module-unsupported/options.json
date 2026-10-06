@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "chrome": "90"
+  },
+  "throws": "[web.structuredClone] structuredClone is not supported by your targets (chrome 90, requires chrome 98)."
+}

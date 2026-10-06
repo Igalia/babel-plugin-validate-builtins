@@ -1,0 +1,15 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      {
+        "webApis": false,
+        "webInstanceMembers": true
+      }
+    ]
+  ],
+  "targets": {
+    "chrome": "100"
+  },
+  "throws": "the \"webInstanceMembers\" option requires the \"webApis\" option to be enabled."
+}

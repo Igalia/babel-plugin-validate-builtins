@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "electron": "2.0"
+  },
+  "throws": "[web.ResizeObserver] ResizeObserver is not supported by your targets (electron 2, requires electron 3)."
+}

@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "chrome": "100"
+  },
+  "throws": "[web.AbortSignal.any_static] AbortSignal.any is not supported by your targets (chrome 100, requires chrome 116)."
+}

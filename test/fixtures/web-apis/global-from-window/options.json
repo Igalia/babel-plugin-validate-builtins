@@ -1,0 +1,6 @@
+{
+  "targets": {
+    "safari": "15"
+  },
+  "throws": "[web.Window.requestIdleCallback] requestIdleCallback is not supported by your targets (safari 15, not supported by any version)."
+}

@@ -1,0 +1,13 @@
+{
+  "plugins": [
+    [
+      "@igalia/validate-builtins",
+      {
+        "webApis": false
+      }
+    ]
+  ],
+  "targets": {
+    "firefox": "60"
+  }
+}

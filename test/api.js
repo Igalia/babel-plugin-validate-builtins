@@ -197,8 +197,8 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
 
     it("throws when a value is not an array of globs", () => {
       const message =
-        'the "perFileExcludes" option must map each core-js module name to ' +
-        "an array of globs.";
+        'the "perFileExcludes" option must map each module name to an ' +
+        "array of globs.";
       expect(() =>
         transformFile("a.js", { "es.object.has-own": "a.js" }),
       ).toThrow(message);
@@ -207,12 +207,12 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
       ).toThrow(message);
     });
 
-    it("throws when a key doesn't match any core-js module", () => {
+    it("throws when a key doesn't match any module", () => {
       expect(() =>
         transformFile("a.js", { "es.object.hasOwn": ["**"], "es.(": ["**"] }),
       ).toThrow(
         'the following "perFileExcludes" keys didn\'t match any core-js ' +
-          "module:\n  - es.object.hasOwn\n  - es.(\n",
+          "module or MDN feature:\n  - es.object.hasOwn\n  - es.(\n",
       );
     });
 
@@ -250,8 +250,8 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
           }),
         );
         expect(warnings).toEqual([
-          "@igalia/babel-plugin-validate-builtins: the following core-js " +
-            'modules are excluded both by "exclude" and by "perFileExcludes":\n' +
+          "@igalia/babel-plugin-validate-builtins: the following built-ins " +
+            'are excluded both by "exclude" and by "perFileExcludes":\n' +
             "  - es.array.find-last\n" +
             "  - es.array.find-last-index\n" +
             "  - es.object.has-own\n" +
@@ -457,6 +457,138 @@ describe("@igalia/babel-plugin-validate-builtins", () => {
       );
       expect(countReports(message)).toBe(1);
       expect(message).toContain(".findLast");
+    });
+  });
+
+  describe("web APIs", () => {
+    const firefox60 = { firefox: "60" };
+
+    it("reports them using MDN's feature names", () => {
+      const { message } = getError(() =>
+        transform("new ResizeObserver(cb);", {}, firefox60),
+      );
+      expect(message).toContain(
+        "[web.ResizeObserver] ResizeObserver is not supported by your " +
+          "targets (firefox 60, requires firefox 69).\n" +
+          "> 1 | new ResizeObserver(cb);\n" +
+          "    |     ^^^^^^^^^^^^^^\n\n" +
+          "If you are already polyfilling it, you can allow it by adding the " +
+          'name in brackets to the "perFileExcludes" option',
+      );
+    });
+
+    it("can be excluded", () => {
+      const code = "new ResizeObserver(cb);\nnavigator.share(data);";
+      expect(
+        transform(
+          code,
+          { exclude: ["web.ResizeObserver", /^web\.Navigator\./] },
+          firefox60,
+        ),
+      ).toBe(code);
+    });
+
+    it("can be excluded per file", () => {
+      const code = "new ResizeObserver(cb);";
+      const transformFile = filename =>
+        transform(
+          code,
+          { perFileExcludes: { "web\\..*": ["src/**"] } },
+          firefox60,
+          {
+            filename,
+            cwd: dirname,
+          },
+        );
+      expect(transformFile("src/a.js")).toBe(code);
+      expect(() => transformFile("lib/a.js")).toThrow(
+        "ResizeObserver is not supported",
+      );
+    });
+
+    it("warns about exclusions of supported web APIs", () => {
+      const warnings = getWarnings(() =>
+        transform("a;", { exclude: ["web.IntersectionObserver"] }),
+      );
+      expect(warnings).toEqual([
+        '@igalia/babel-plugin-validate-builtins: the following "exclude" ' +
+          "patterns only match built-ins that are supported by your targets:\n" +
+          "  - web.IntersectionObserver\n" +
+          "You can remove them, together with any polyfill you are loading " +
+          "for them.",
+      ]);
+    });
+
+    it("can be disabled", () => {
+      const code = "new ResizeObserver(cb);\nstructuredClone(x);";
+      expect(transform(code, { webApis: false }, firefox60)).toBe(code);
+      expect(() =>
+        transform("a;", { webApis: false, exclude: ["web.ResizeObserver"] }),
+      ).toThrow(
+        'The following "exclude" patterns didn\'t match any polyfill:\n' +
+          "    web.ResizeObserver",
+      );
+    });
+
+    it("only accepts instance properties with webInstanceMembers", () => {
+      const options = { exclude: ["web.Element.checkVisibility"] };
+      expect(() => transform("a;", options)).toThrow(
+        "web.Element.checkVisibility",
+      );
+      const code = "el.checkVisibility();";
+      expect(
+        transform(
+          code,
+          { ...options, webInstanceMembers: true },
+          { chrome: "100" },
+        ),
+      ).toBe(code);
+    });
+
+    describe("core-js web modules", () => {
+      it("throws when excluding them, suggesting MDN's names", () => {
+        expect(() =>
+          transform("a;", {
+            exclude: [
+              "web.url",
+              "web\\.dom-exception\\..*",
+              "web.url-search-params.size",
+            ],
+          }),
+        ).toThrow(
+          "@igalia/babel-plugin-validate-builtins: web APIs are now " +
+            "validated using MDN's browser-compat-data rather than core-js's " +
+            '`web.*` modules. The following "exclude" patterns only match ' +
+            "core-js modules that are not used anymore:\n" +
+            "  - web.url: use web.URL instead.\n" +
+            "  - web\\.dom-exception\\..*: use web.DOMException instead.\n" +
+            "  - web.url-search-params.size: it is not reported anymore, so " +
+            "you can remove it.\n",
+        );
+      });
+
+      it("throws when excluding them per file", () => {
+        expect(() =>
+          transform("a;", {
+            perFileExcludes: { "web.timers": ["**"] },
+          }),
+        ).toThrow(
+          'The following "perFileExcludes" keys only match core-js modules ' +
+            "that are not used anymore:\n" +
+            "  - web.timers: use web.setTimeout, web.setInterval instead.\n",
+        );
+      });
+
+      it("accepts patterns that also match other modules", () => {
+        const code = "Object.hasOwn(a, b);";
+        expect(
+          transform(code, { exclude: ["(es|web)\\.object\\.has-own"] }),
+        ).toBe(code);
+        // core-js's web.atob has the same name as MDN's api.atob
+        expect(
+          transform("atob(x);", { exclude: ["web.atob"] }, { ie: "9" }),
+        ).toBe("atob(x);");
+      });
     });
   });
 

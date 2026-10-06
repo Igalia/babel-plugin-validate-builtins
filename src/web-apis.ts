@@ -116,6 +116,11 @@ export const coreJSWebModuleReplacements: Record<string, string[] | null> = {
   "web.url-search-params.size": null,
 };
 
+// @babel/helper-compilation-targets uses the Chrome version for Android when
+// the compat data doesn't contain one, so omitting Android doesn't mean that
+// a feature is unsupported. We use a version that will never exist instead.
+export const NEVER_SUPPORTED = "999999";
+
 export const isCoreJSWebModule = (name: string) => name.startsWith("web.");
 
 // The lowest version in which the feature is supported without flags,
@@ -164,6 +169,8 @@ export function bcdSupportToCompat(
     if (version == null) delete result[target];
     else result[target] = version;
   }
+
+  result.android ??= NEVER_SUPPORTED;
 
   if (result.chrome == null) {
     delete result.electron;
